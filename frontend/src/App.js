@@ -206,12 +206,16 @@ export default function App() {
     else showToast('Signed in as Guest');
   };
 
-  const handleSignOut = async () => {
-    if (window.confirm('Are you sure you want to sign out?')) {
-      await supabase.auth.signOut();
-      showToast('Signed out successfully.');
-    }
-  };
+	const handleSignOut = async () => {
+	  if (window.confirm('Are you sure you want to sign out?')) {
+		const { error } = await supabase.auth.signOut();
+		if (error) {
+		  showToast('Error signing out: ' + error.message, 'error');
+		} else {
+		  showToast('Signed out successfully.');
+		}
+	  }
+	};
 
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
