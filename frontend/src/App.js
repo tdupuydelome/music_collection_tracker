@@ -16,6 +16,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -35,8 +36,34 @@ export default function App() {
     }
   }, [session]);
 
+  useEffect(() => {
+    if (!session || !showScanner) return;
+
+    const scanner = new Html5QrcodeScanner(
+      'reader',
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      false
+    );
+
+    scanner.render(
+      (decodedText) => {
+        setQuery(decodedText);
+        setShowScanner(false);
+        handleSearch(decodedText, 'barcode');
+        scanner.clear().catch(() => {});
+      },
+      () => {
+        // Ignore routine frame-by-frame scan misses
+      }
+    );
+
+    return () => {
+      scanner.clear().catch(() => {});
+    };
+  }, [session, showScanner]);
+
   const fetchInventory = async () => {
-    const { data: { session } } = supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
     const res = await fetch(`${API_BASE_URL}/inventory`, {
@@ -59,12 +86,16 @@ export default function App() {
   };
 
   const handleSearch = async (searchQuery, type = 'barcode') => {
+    if (!searchQuery.trim()) return;
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     try {
-      const res = await fetch(`${API_BASE_URL}/inventory/search?query=${encodeURIComponent(searchQuery)}&type=${type}`, {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/inventory/search?query=${encodeURIComponent(searchQuery)}&type=${type}`,
+        {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        }
+      );
       const data = await res.json();
       setSearchResults(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -93,6 +124,7 @@ export default function App() {
     if (result.success) {
       alert('Successfully added to inventory!');
       setSearchResults([]);
+      setQuery('');
       fetchInventory();
     }
   };
@@ -102,8 +134,8 @@ export default function App() {
       <div style={{ maxWidth: 400, margin: '50px auto', padding: 20, fontFamily: 'sans-serif' }}>
         <h2>Vinyl Inventory Login</h2>
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <button type="submit" style={{ padding: 10, background: '#1a73e8', color: '#fff', border: 'none', borderRadius: 4 }}>Login</button>
           <button type="button" onClick={handleSignUp} style={{ padding: 10, background: '#34a853', color: '#fff', border: 'none', borderRadius: 4 }}>Sign Up</button>
         </form>
@@ -119,20 +151,43 @@ export default function App() {
       </div>
 
       <div style={{ margin: '20px 0', padding: 15, background: '#f9f9f9', borderRadius: 8 }}>
-        <h3>Add New Record</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}>Add New Record</h3>
+          <button
+            type="button"
+            onClick={() => setShowScanner((prev) => !prev)}
+            style={{
+              padding: '6px 12px',
+              background: showScanner ? '#d93025' : '#1a73e8',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer'
+            }}
+          >
+            {showScanner ? 'Close Camera' : 'Scan Barcode'}
+          </button>
+        </div>
+
+        {showScanner && (
+          <div id="reader" style={{ width: '100%', maxWidth: '400px', margin: '0 auto 15px auto' }}></div>
+        )}
+
         <div style={{ display: 'flex', gap: 10 }}>
-          <input 
-            type="text" 
-            placeholder="Search barcode or artist/album..." 
-            value={query} 
-            onChange={e => setQuery(e.target.value)} 
+          <input
+            type="text"
+            placeholder="Search barcode or artist/album..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             style={{ flex: 1, padding: 8 }}
           />
           <button onClick={() => handleSearch(query, 'q')} style={{ padding: '8px 16px' }}>Search</button>
         </div>
+
         {loading && <p>Searching Discogs...</p>}
+
         <div style={{ marginTop: 10 }}>
-          {searchResults.map(item => (
+          {searchResults.map((item) => (
             <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#fff', padding: 8, marginTop: 5, borderRadius: 4, border: '1px solid #ddd' }}>
               <img src={item.thumb || 'https://via.placeholder.com/50'} alt="" width="50" height="50" style={{ objectFit: 'cover' }} />
               <div style={{ flex: 1 }}>
@@ -156,7 +211,7 @@ export default function App() {
           </tr>
         </thead>
         <tbody>
-          {inventory.map(item => (
+          {inventory.map((item) => (
             <tr key={item.id} style={{ borderBottom: '1px solid #ddd' }}>
               <td style={{ padding: 8 }}><img src={item.cover_url || 'https://via.placeholder.com/40'} alt="" width="40" height="40" style={{ objectFit: 'cover' }} /></td>
               <td style={{ padding: 8 }}><strong>{item.artist}</strong><br />{item.title} ({item.year})</td>
