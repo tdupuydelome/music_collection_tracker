@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import './App.css';
 
+// Initialize environment variables and Supabase client connection
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'YOUR_SUPABASE_URL';
 const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://vinyl-inventory-api.fly.dev/api';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Fields excluded from the expanded item detail accordion view
 const HIDDEN_DETAIL_KEYS = new Set(['id', 'user_id', 'cover_url']);
 
+// Application color palette and design tokens
 const THEME = {
   bgPage: '#f6f3fb',
   bgCard: '#ffffff',
@@ -25,6 +28,7 @@ const THEME = {
   danger: '#dc2626'
 };
 
+// Fallback SVG graphic for records missing cover art thumbnails
 const VINYL_PLACEHOLDER =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`
@@ -38,6 +42,7 @@ const VINYL_PLACEHOLDER =
     </svg>
   `);
 
+// Animated spinning vinyl disc component for active states and headers
 const VinylHeroArt = ({ size = 64, active = false }) => (
   <svg
     className={`vinyl-disc ${active ? 'is-spinning' : ''}`}
@@ -63,6 +68,7 @@ const VinylHeroArt = ({ size = 64, active = false }) => (
   </svg>
 );
 
+// Animated equalizer bars indicator component
 const MusicBarsArt = ({ active = false }) => (
   <svg
     className={`eq-bars ${active ? 'is-active' : ''}`}
@@ -82,9 +88,12 @@ const MusicBarsArt = ({ active = false }) => (
 );
 
 export default function App() {
+  // Authentication and view navigation states
   const [session, setSession] = useState(null);
   const [isGuest, setIsGuest] = useState(false);
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'profile'
+  
+  // Inventory and Discogs search states
   const [inventory, setInventory] = useState([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -95,7 +104,7 @@ export default function App() {
   const [showScanner, setShowScanner] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
 
-  // Profile & Security states
+  // Profile security and account management states
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updatingPassword, setUpdatingPassword] = useState(false);
@@ -103,14 +112,15 @@ export default function App() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
 
-  // Toast notification state
+  // Global toast notification state
   const [toast, setToast] = useState(null);
 
-  // Collection filter states
+  // Shelf inventory filtering and item deletion states
   const [filterText, setFilterText] = useState('');
   const [filterFormat, setFilterFormat] = useState('ALL');
   const [deletingId, setDeletingId] = useState(null);
 
+  // Helper function to trigger floating toast alerts with auto-dismissal
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => {
@@ -118,6 +128,7 @@ export default function App() {
     }, 3500);
   };
 
+  // Effect hook to initialize and monitor Supabase user authentication state
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -132,40 +143,67 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Effect hook to fetch user inventory records whenever an active session is established
   useEffect(() => {
     if (session) {
       fetchInventory();
     }
   }, [session]);
 
+  // Effect hook to initialize the barcode camera scanner, targeting the rear environment camera by default
   useEffect(() => {
     if (!session || !showScanner) return;
 
-    const scanner = new Html5QrcodeScanner(
-      'reader',
-      { 
-        fps: 15, 
-        qrbox: { width: 280, height: 140 },
-        aspectRatio: 1.777778 
-      },
-      false
-    );
+    let html5QrCode = null;
 
-    scanner.render(
-      (decodedText) => {
-        setQuery(decodedText);
-        setShowScanner(false);
-        handleSearch(decodedText, 'barcode');
-        scanner.clear().catch(() => {});
-      },
-      () => {}
-    );
+    const startScanner = async () => {
+      try {
+        html5QrCode = new Html5Qrcode('reader');
+        const devices = await Html5Qrcode.getCameras();
+        
+        let cameraIdOrConfig = { facingMode: 'environment' };
+        if (devices && devices.length > 0) {
+          const rearCamera = devices.find(d => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('rear') || 
+            d.label.toLowerCase().includes('environment')
+          );
+          if (rearCamera) {
+            cameraIdOrConfig = rearCamera.id;
+          }
+        }
+
+        await html5QrCode.start(
+          cameraIdOrConfig,
+          {
+            fps: 15,
+            qrbox: { width: 280, height: 140 }
+          },
+          (decodedText) => {
+            setQuery(decodedText);
+            setShowScanner(false);
+            handleSearch(decodedText, 'barcode');
+            if (html5QrCode && html5QrCode.isScanning) {
+              html5QrCode.stop().catch(() => {});
+            }
+          },
+          () => {}
+        );
+      } catch (err) {
+        showToast('Camera initialization failed: ' + err.message, 'error');
+      }
+    };
+
+    startScanner();
 
     return () => {
-      scanner.clear().catch(() => {});
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(() => {});
+      }
     };
   }, [session, showScanner]);
 
+  // Fetch cataloged inventory from backend API using user Bearer token
   const fetchInventory = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -187,6 +225,7 @@ export default function App() {
     }
   };
 
+  // Handle user sign-in via email and password
   const handleLogin = async (e) => {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -194,29 +233,33 @@ export default function App() {
     else showToast('Welcome back!');
   };
 
+  // Handle new account registration
   const handleSignUp = async () => {
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) showToast(error.message, 'error');
     else showToast('Check your email for confirmation!');
   };
 
+  // Handle anonymous guest login for testing mode
   const handleGuestLogin = async () => {
     const { error } = await supabase.auth.signInAnonymously();
     if (error) showToast(error.message, 'error');
     else showToast('Signed in as Guest');
   };
 
-	const handleSignOut = async () => {
-	  if (window.confirm('Are you sure you want to sign out?')) {
-		const { error } = await supabase.auth.signOut();
-		if (error) {
-		  showToast('Error signing out: ' + error.message, 'error');
-		} else {
-		  showToast('Signed out successfully.');
-		}
-	  }
-	};
+  // Handle user session sign-out with confirmation prompt
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        showToast('Error signing out: ' + error.message, 'error');
+      } else {
+        showToast('Signed out successfully.');
+      }
+    }
+  };
 
+  // Handle account password updates
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -241,6 +284,7 @@ export default function App() {
     }
   };
 
+  // Handle logical account deactivation and data purging via backend endpoint
   const handleLogicalAccountDeletion = async () => {
     if (deleteConfirmText !== 'DELETE') return;
 
@@ -270,6 +314,7 @@ export default function App() {
     }
   };
 
+  // Search Discogs database via backend API proxy
   const handleSearch = async (searchQuery, type = 'barcode') => {
     if (!searchQuery.trim()) return;
     setLoading(true);
@@ -296,6 +341,7 @@ export default function App() {
     setLoading(false);
   };
 
+  // Save a selected Discogs release to user inventory
   const saveRelease = async (releaseId, barcode, force = false) => {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch(`${API_BASE_URL}/inventory`, {
@@ -328,6 +374,7 @@ export default function App() {
     }
   };
 
+  // Delete an individual inventory record from shelf
   const handleDelete = async (item) => {
     const confirmed = window.confirm(
       `Remove "${item.artist || 'Unknown'} - ${item.title || 'Untitled'}" from your collection?`
@@ -368,6 +415,7 @@ export default function App() {
     }
   };
 
+  // Toggle accordion expansion state for inventory table rows
   const toggleRow = (id) => {
     setExpandedRows((prev) => ({
       ...prev,
@@ -375,6 +423,7 @@ export default function App() {
     }));
   };
 
+  // Memoized statistics calculation for collection KPI dashboard and format share breakdown
   const stats = useMemo(() => {
     const total = inventory.length;
     if (total === 0) {
@@ -423,6 +472,7 @@ export default function App() {
     };
   }, [inventory]);
 
+  // Memoized filter utility for searching and filtering inventory records
   const filteredInventory = useMemo(() => {
     const term = filterText.trim().toLowerCase();
 
@@ -453,6 +503,7 @@ export default function App() {
     });
   }, [inventory, filterText, filterFormat]);
 
+  // Helper formatting functions for inventory detail keys and values
   const formatFieldLabel = (key) =>
     key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -466,6 +517,7 @@ export default function App() {
   const barColors = ['#6d28d9', '#9333ea', '#c026d3', '#4f46e5', '#db2777', '#7c3aed'];
   const isActivityRunning = loading || showScanner;
 
+  // Render authentication screen if user session is not active
   if (!session) {
     return (
       <div
@@ -591,6 +643,7 @@ export default function App() {
     );
   }
 
+  // Render main application dashboard once authenticated
   return (
     <div
       style={{
@@ -602,7 +655,6 @@ export default function App() {
       }}
     >
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* Purple Hero Header */}
         <div
           style={{
             background: `linear-gradient(135deg, ${THEME.primaryDark} 0%, ${THEME.primary} 55%, ${THEME.accent} 100%)`,
@@ -700,7 +752,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tab Content Routing */}
+        {/* Tab Router: Profile View vs Collection Shelf View */}
         {activeTab === 'profile' ? (
           <div style={{ background: THEME.bgCard, borderRadius: 16, border: `1px solid ${THEME.border}`, padding: '28px 32px', maxWidth: 640, margin: '0 auto', boxShadow: '0 8px 24px rgba(109, 40, 217, 0.08)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: `1px solid ${THEME.border}`, paddingBottom: 16 }}>
@@ -775,7 +827,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* Collection Dashboard */}
+            {/* KPI Dashboard Cards */}
             <div
               style={{
                 background: THEME.bgCard,
@@ -866,7 +918,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Add New Record */}
+            {/* Add New Pressing & Scanner Section */}
             <div
               style={{
                 margin: '20px 0',
@@ -993,7 +1045,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Inventory Filter Bar & Header */}
+            {/* Inventory Filtering and Table View */}
             <div
               style={{
                 display: 'flex',
@@ -1071,7 +1123,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Inventory Table */}
             <div
               style={{
                 background: THEME.bgCard,
@@ -1242,7 +1293,7 @@ export default function App() {
           </>
         )}
 
-        {/* Custom Delete Confirmation Modal */}
+        {/* Logical Account Deletion Confirmation Modal */}
         {showDeleteModal && (
           <div style={{
             position: 'fixed',
@@ -1328,7 +1379,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Floating Toast Notification */}
+        {/* Floating Toast Notification Component */}
         {toast && (
           <div
             style={{
