@@ -10,6 +10,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Toast notification slide-up animation */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Spinning vinyl animation (active during search or camera scan) */
 @keyframes vinyl-spin {
   from {
