@@ -138,7 +138,6 @@ export default function App() {
     }
   }, [session]);
 
-  // Automatic rear-camera scanner configuration
   useEffect(() => {
     if (!session || !showScanner) return;
 
@@ -205,6 +204,13 @@ export default function App() {
     const { error } = await supabase.auth.signInAnonymously();
     if (error) showToast(error.message, 'error');
     else showToast('Signed in as Guest');
+  };
+
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      await supabase.auth.signOut();
+      showToast('Signed out successfully.');
+    }
   };
 
   const handlePasswordUpdate = async (e) => {
@@ -660,8 +666,8 @@ export default function App() {
               onClick={() => setActiveTab(activeTab === 'inventory' ? 'profile' : 'inventory')}
               style={{
                 padding: '8px 14px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                color: '#fff',
+                background: activeTab === 'profile' ? '#fff' : 'rgba(255, 255, 255, 0.2)',
+                color: activeTab === 'profile' ? THEME.primaryDark : '#fff',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: 8,
                 fontWeight: 600,
@@ -669,11 +675,11 @@ export default function App() {
                 cursor: 'pointer'
               }}
             >
-              {activeTab === 'inventory' ? 'My Profile' : 'Back to Collection'}
+              {activeTab === 'inventory' ? '⚙️ My Profile' : '← Back to Collection'}
             </button>
             <button
               className="btn-interactive"
-              onClick={() => supabase.auth.signOut()}
+              onClick={handleSignOut}
               style={{
                 padding: '8px 16px',
                 background: 'rgba(255, 255, 255, 0.15)',
@@ -692,16 +698,28 @@ export default function App() {
 
         {/* Tab Content Routing */}
         {activeTab === 'profile' ? (
-          <div style={{ background: THEME.bgCard, borderRadius: 14, border: `1px solid ${THEME.border}`, padding: 24, maxWidth: 600, margin: '0 auto', boxShadow: '0 4px 14px rgba(109, 40, 217, 0.05)' }}>
-            <h3 style={{ margin: '0 0 16px 0', color: THEME.primaryDark }}>Account Profile & Security</h3>
-            <p style={{ fontSize: 13, color: THEME.textMuted, marginBottom: 20 }}>
-              Signed in as: <strong>{session.user.email || 'Anonymous Guest'}</strong>
-            </p>
+          <div style={{ background: THEME.bgCard, borderRadius: 16, border: `1px solid ${THEME.border}`, padding: '28px 32px', maxWidth: 640, margin: '0 auto', boxShadow: '0 8px 24px rgba(109, 40, 217, 0.08)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: `1px solid ${THEME.border}`, paddingBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px 0', color: THEME.primaryDark, fontSize: 20 }}>Account Profile &amp; Security</h3>
+                <p style={{ fontSize: 13, color: THEME.textMuted, margin: 0 }}>
+                  Signed in as: <strong>{session.user.email || 'Anonymous Guest'}</strong>
+                </p>
+              </div>
+              <button
+                className="btn-interactive"
+                type="button"
+                onClick={() => setActiveTab('inventory')}
+                style={{ padding: '8px 14px', background: THEME.primaryLight, color: THEME.primaryDark, border: `1px solid ${THEME.border}`, borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+              >
+                ← Back to Shelf
+              </button>
+            </div>
 
             {!isGuest ? (
               <form onSubmit={handlePasswordUpdate} style={{ marginBottom: 32, borderBottom: `1px solid ${THEME.border}`, paddingBottom: 24 }}>
                 <h4 style={{ margin: '0 0 12px 0', color: THEME.textMain, fontSize: 15 }}>Update Password</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <input
                     className="purple-input"
                     type="password"
@@ -709,7 +727,7 @@ export default function App() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
-                    style={{ padding: '10px 14px', borderRadius: 8, border: `1px solid ${THEME.border}`, fontSize: 14 }}
+                    style={{ padding: '11px 14px', borderRadius: 8, border: `1px solid ${THEME.border}`, fontSize: 14 }}
                   />
                   <input
                     className="purple-input"
@@ -718,13 +736,13 @@ export default function App() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    style={{ padding: '10px 14px', borderRadius: 8, border: `1px solid ${THEME.border}`, fontSize: 14 }}
+                    style={{ padding: '11px 14px', borderRadius: 8, border: `1px solid ${THEME.border}`, fontSize: 14 }}
                   />
                   <button
                     className="btn-interactive"
                     type="submit"
                     disabled={updatingPassword}
-                    style={{ padding: '10px 16px', background: THEME.primary, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
+                    style={{ padding: '11px 18px', background: THEME.primary, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}
                   >
                     {updatingPassword ? 'Updating...' : 'Save New Password'}
                   </button>
@@ -745,7 +763,7 @@ export default function App() {
                 className="btn-interactive"
                 type="button"
                 onClick={() => setShowDeleteModal(true)}
-                style={{ padding: '9px 16px', background: THEME.danger, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                style={{ padding: '10px 16px', background: THEME.danger, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
               >
                 Delete Account (Logical)
               </button>
