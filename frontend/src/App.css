@@ -1,0 +1,137 @@
+/* Smooth defaults & custom styling */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #f6f3fb;
+  color: #1e1b4b;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Spinning vinyl animation (active during search or camera scan) */
+@keyframes vinyl-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(192, 132, 252, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(192, 132, 252, 0.85));
+  }
+}
+
+@keyframes eq-bounce {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.5);
+  }
+}
+
+.vinyl-disc {
+  transition: transform 0.4s ease;
+  transform-origin: center;
+}
+
+.vinyl-disc:hover {
+  transform: rotate(25deg) scale(1.04);
+}
+
+.vinyl-disc.is-spinning {
+  animation: vinyl-spin 2.4s linear infinite, pulse-glow 1.8s ease-in-out infinite;
+}
+
+/* Equalizer bar motion when active */
+.eq-bars.is-active rect {
+  transform-origin: bottom;
+  animation: eq-bounce 0.8s ease-in-out infinite;
+}
+
+.eq-bars.is-active rect:nth-child(2) { animation-delay: 0.15s; }
+.eq-bars.is-active rect:nth-child(3) { animation-delay: 0.3s; }
+.eq-bars.is-active rect:nth-child(4) { animation-delay: 0.1s; }
+.eq-bars.is-active rect:nth-child(5) { animation-delay: 0.25s; }
+.eq-bars.is-active rect:nth-child(6) { animation-delay: 0.4s; }
+
+/* Card & KPI hover lift */
+.kpi-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(109, 40, 217, 0.12);
+  border-color: #c4b5fd !important;
+}
+
+/* Interactive buttons */
+.btn-interactive {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.btn-interactive:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 40, 217, 0.22);
+  filter: brightness(1.05);
+}
+
+.btn-interactive:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Purple focus ring for inputs & selects */
+.purple-input {
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.purple-input:focus {
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.16);
+  outline: none;
+}
+
+/* Inventory table row & cover hover effects */
+.inventory-row {
+  transition: background-color 0.16s ease;
+}
+
+.inventory-row:hover {
+  background-color: #f5f0ff !important;
+}
+
+.album-cover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.inventory-row:hover .album-cover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 10px rgba(76, 29, 149, 0.18);
+}
+
+/* Search result card hover */
+.search-result-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.search-result-card:hover {
+  transform: translateX(3px);
+  border-color: #a78bfa !important;
+  box-shadow: 0 4px 12px rgba(109, 40, 217, 0.1);
+}
+
+/* Mobile table responsiveness */
+@media (max-width: 640px) {
+  .hide-mobile {
+    display: none;
+  }
+}
